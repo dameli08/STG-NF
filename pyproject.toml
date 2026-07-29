@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stgnf-retails"
+version = "0.1.0"
+description = "Faithful STG-NF (Normalizing Flows for Human Pose Anomaly Detection, ICCV 2023) reproduction adapted to the RetailS dataset."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "STG-NF RetailS reproduction" }]
+dependencies = [
+    "torch>=2.0",
+    "numpy>=1.23",
+    "scipy>=1.9",
+    "scikit-learn>=1.1",
+    "pyyaml>=6.0",
+    "tqdm>=4.64",
+    "matplotlib>=3.6",
+    "tensorboard>=2.11",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

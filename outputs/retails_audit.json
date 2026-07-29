@@ -1,0 +1,95 @@
+{
+  "train": {
+    "num_files": 942,
+    "invalid_json": 0,
+    "persons_per_clip": {
+      "min": 1,
+      "median": 30,
+      "max": 171
+    },
+    "track_len_frames": {
+      "min": 15,
+      "median": 103,
+      "max": 28586,
+      "frac_ge_24": 0.9290110791957324,
+      "frac_ge_16": 0.9897414854329093
+    },
+    "coord_x": {
+      "min": 0.0,
+      "max": 1079.0
+    },
+    "coord_y": {
+      "min": 0.0,
+      "max": 1919.0
+    },
+    "confidence": {
+      "min": 0.00022292137145996094,
+      "max": 1.109375,
+      "mean": 0.643805980682373
+    },
+    "gt_len_le_maxframe": 0,
+    "abnormal_frame_fraction": null
+  },
+  "test_realworld": {
+    "num_files": 47,
+    "invalid_json": 0,
+    "persons_per_clip": {
+      "min": 1,
+      "median": 1,
+      "max": 5
+    },
+    "track_len_frames": {
+      "min": 1,
+      "median": 40,
+      "max": 271,
+      "frac_ge_24": 0.782051282051282,
+      "frac_ge_16": 0.8333333333333334
+    },
+    "coord_x": {
+      "min": 0.0,
+      "max": 878.5
+    },
+    "coord_y": {
+      "min": 0.0,
+      "max": 1320.0
+    },
+    "confidence": {
+      "min": NaN,
+      "max": NaN,
+      "mean": NaN
+    },
+    "gt_len_le_maxframe": 0,
+    "abnormal_frame_fraction": 0.3165497317375155
+  },
+  "test_staged": {
+    "num_files": 624,
+    "invalid_json": 0,
+    "persons_per_clip": {
+      "min": 1,
+      "median": 1,
+      "max": 6
+    },
+    "track_len_frames": {
+      "min": 1,
+      "median": 56,
+      "max": 182,
+      "frac_ge_24": 0.8590203106332138,
+      "frac_ge_16": 0.8948626045400239
+    },
+    "coord_x": {
+      "min": 0.0,
+      "max": 1078.0
+    },
+    "coord_y": {
+      "min": 0.0,
+      "max": 1917.0
+    },
+    "confidence": {
+      "min": 0.0005650520324707031,
+      "max": 1.013671875,
+      "mean": 0.6863072514533997
+    },
+    "gt_len_le_maxframe": 0,
+    "abnormal_frame_fraction": 0.49703028377288394
+  }
+}

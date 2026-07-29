@@ -1,0 +1,80 @@
+# Configuration for STG-NF on the RetailS dataset (unsupervised recipe).
+# All paths are absolute or resolved relative to the repository root.
+
+seed: 42            # 999 => random seed (paper behaviour)
+device: auto        # auto | cpu | cuda | cuda:0 | cuda:1  (auto = GPU with most free memory)
+amp: true           # mixed precision (autocast) for the coupling ST-GCN blocks
+
+dataset:
+  name: RetailS
+  # RetailS root holding the three split folders.
+  root: /home/damelikassym/RetailS/RetailS
+  pose_train: RetailS_train/pose/train
+  # Evaluation splits: each maps a name -> {pose, gt}.
+  test_splits:
+    test_realworld:
+      pose: RetailS_test_realworld/pose/test
+      gt: RetailS_test_realworld/gt/test_frame_mask
+    test_staged:
+      pose: RetailS_test_staged/pose/test
+      gt: RetailS_test_staged/gt/test_frame_mask
+  vid_res: [1080, 1920]   # RetailS is portrait (x<=1078, y<=1919)
+  num_keypoints: 17       # native COCO17; converted to COCO18 (+neck) internally
+  kp18_format: true
+  headless: false
+
+preprocessing:
+  seg_len: 24             # sliding-window length (frames)
+  seg_stride: 6           # train stride; test always uses stride 1
+  train_seg_conf_th: 0.0  # drop training windows with mean keypoint confidence below this
+  max_missing: 2          # frames allowed missing inside a window (continuity tolerance)
+  interpolate_gaps: true  # linearly interpolate small (<=max_missing) intra-track gaps
+  normalization:
+    symm_range: false     # shift to [-1,1] before segment normalization
+    seg_norm: true        # per-segment (T,V) mean-subtract + divide by y-std (paper normalize_pose)
+
+model:
+  in_channels: 2          # 2 = (x,y); 3 = (x,y,conf) when model_confidence is true
+  model_confidence: false # weight NLL by keypoint confidence (paper flag)
+  K: 8                    # flow steps per level
+  L: 1                    # flow levels (squeeze applied for L>1)
+  R: 0.0                  # prior shift; 0 => unsupervised (RetailS train is normal-only)
+  hidden_channels: 0      # 0 => single ST-GCN layer in the coupling network
+  actnorm_scale: 1.0
+  flow_permutation: permute   # permute | shuffle | invconv
+  flow_coupling: affine       # affine | additive
+  LU_decomposed: true
+  learn_top: false
+  edge_importance: false
+  temporal_kernel_size: null  # null => seg_len//2 + 1
+  adj_strategy: uniform       # uniform | distance | spatial
+  max_hops: 8
+
+training:
+  epochs: 8
+  batch_size: 256
+  num_workers: 4
+  optimizer: adamax        # adamax | adam
+  lr: 5.0e-4
+  weight_decay: 5.0e-5
+  scheduler: exp_decay     # exp_decay | cosine | none
+  lr_decay: 0.99           # exp_decay multiplier per epoch
+  grad_clip: 100.0
+  num_transform: 2         # pose augmentations (flip/shear) applied to training windows
+  log_interval: 20
+  early_stopping:
+    enable: true
+    patience: 3            # stop after this many epochs without val-NLL improvement
+    min_delta: 0.0         # minimum val-NLL decrease counted as an improvement
+    val_fraction: 0.1      # fraction of train CLIPS held out for validation (split by clip)
+    seed: 42               # seed for the clip-level train/val split
+
+evaluation:
+  smoothing_sigma: 7       # gaussian temporal smoothing of per-frame scores
+  frame_offset: half       # half => assign window score to frame start + seg_len//2
+
+output:
+  root: outputs
+  checkpoint_dir: outputs/checkpoints
+  tensorboard_dir: outputs/tensorboard
+  eval_dir: outputs/evaluation

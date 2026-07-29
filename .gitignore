@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+shopformer/
+
+# Data (do not commit the dataset)
+data/
+*.npy
+!outputs/evaluation/**/*.npy
+
+# Training artifacts (keep evaluation metrics/plots, drop large binaries)
+outputs/checkpoints/
+outputs/tensorboard/
+outputs/**/tb_*/
+*.pt
+*.tar
+*.ckpt
+
+# OS / editor
+.DS_Store
+*.swp
