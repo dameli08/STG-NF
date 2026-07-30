@@ -22,6 +22,12 @@ class Metrics:
     recall_at_best_f1: float
     num_frames: int
     num_abnormal: int
+    # Precision-oriented operating points (added for the RetailS precision focus).
+    precision_at_eer: float = float("nan")
+    recall_at_eer: float = float("nan")
+    target_recall: float = float("nan")
+    precision_at_target_recall: float = float("nan")
+    threshold_at_target_recall: float = float("nan")
 
     def to_dict(self) -> Dict[str, float]:
         return asdict(self)
@@ -38,6 +44,34 @@ def _clean(scores: np.ndarray) -> np.ndarray:
     return scores
 
 
+def precision_recall_at_threshold(gt: np.ndarray, scores: np.ndarray, thr: float):
+    """Precision/recall for the rule ``score >= thr`` => abnormal."""
+    pred = scores >= thr
+    tp = int(np.sum(pred & (gt == 1)))
+    fp = int(np.sum(pred & (gt == 0)))
+    fn = int(np.sum((~pred) & (gt == 1)))
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    return precision, recall
+
+
+def precision_at_target_recall(gt: np.ndarray, scores: np.ndarray, target_recall: float):
+    """Highest precision achievable while keeping recall >= ``target_recall``.
+
+    Returns ``(precision, recall, threshold)``. Useful when the evaluation cares
+    about precision at an acceptable recall level.
+    """
+    precision, recall, thr = precision_recall_curve(gt, scores)
+    # precision/recall have len == len(thr)+1; align by dropping the final point.
+    p, r = precision[:-1], recall[:-1]
+    feasible = r >= target_recall
+    if not feasible.any():
+        return float("nan"), float("nan"), float("nan")
+    idx_candidates = np.where(feasible)[0]
+    best = idx_candidates[np.argmax(p[idx_candidates])]
+    return float(p[best]), float(r[best]), float(thr[best])
+
+
 def compute_eer(gt: np.ndarray, scores: np.ndarray):
     """Equal Error Rate and its threshold (higher score => abnormal)."""
     fpr, tpr, thr = roc_curve(gt, scores)
@@ -47,7 +81,8 @@ def compute_eer(gt: np.ndarray, scores: np.ndarray):
     return eer, float(thr[idx])
 
 
-def compute_metrics(gt: np.ndarray, anomaly_scores: np.ndarray) -> Metrics:
+def compute_metrics(gt: np.ndarray, anomaly_scores: np.ndarray,
+                    target_recall: float = 0.5) -> Metrics:
     """Compute the full metric suite. ``gt``: 1 = abnormal; higher score = abnormal."""
     gt = np.asarray(gt, dtype=np.int64)
     scores = _clean(anomaly_scores)
@@ -66,6 +101,9 @@ def compute_metrics(gt: np.ndarray, anomaly_scores: np.ndarray) -> Metrics:
     best_f1 = float(f1[best_idx])
     best_thr = float(thr[best_idx]) if thr.size else float("nan")
 
+    p_eer, r_eer = precision_recall_at_threshold(gt, scores, eer_thr)
+    p_tr, r_tr, thr_tr = precision_at_target_recall(gt, scores, target_recall)
+
     return Metrics(
         auc_roc=auc_roc,
         auc_pr=auc_pr,
@@ -77,6 +115,11 @@ def compute_metrics(gt: np.ndarray, anomaly_scores: np.ndarray) -> Metrics:
         recall_at_best_f1=float(recall[best_idx]),
         num_frames=int(gt.size),
         num_abnormal=int(gt.sum()),
+        precision_at_eer=float(p_eer),
+        recall_at_eer=float(r_eer),
+        target_recall=float(target_recall),
+        precision_at_target_recall=float(p_tr),
+        threshold_at_target_recall=float(thr_tr),
     )
 
 

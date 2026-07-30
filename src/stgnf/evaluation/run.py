@@ -51,15 +51,28 @@ def evaluate_splits(
             log.warning("[%s] score/metadata length mismatch: %d vs %d",
                         split_name, window_norm.shape[0], len(dataset.metadata))
 
+        window_conf = None
+        if getattr(dataset, "scores", None) is not None and dataset.scores.size:
+            window_conf = dataset.scores.mean(axis=1)
+
         scores = assemble_frame_scores(
             window_norm, dataset.metadata, gt_dir, seg_len=cfg.preprocessing.seg_len,
-            smoothing_sigma=ev.smoothing_sigma, frame_offset=ev.frame_offset)
-        metrics = compute_metrics(scores.gt, scores.anomaly)
+            smoothing_sigma=ev.smoothing_sigma, frame_offset=ev.frame_offset,
+            aggregation=ev.get("aggregation", "center"),
+            window_conf=window_conf,
+            min_confidence=float(ev.get("min_confidence", 0.0)))
+        metrics = compute_metrics(scores.gt, scores.anomaly,
+                                  target_recall=float(ev.get("target_recall", 0.5)))
         results[split_name] = metrics.to_dict()
 
         log.info("[%s] AUC-ROC %.4f | AUC-PR %.4f | EER %.4f | F1 %.4f (%d frames, %d abnormal)",
                  split_name, metrics.auc_roc, metrics.auc_pr, metrics.eer, metrics.best_f1,
                  metrics.num_frames, metrics.num_abnormal)
+        log.info("[%s] precision @best-F1 %.4f (recall %.4f) | @EER %.4f (recall %.4f) | "
+                 "@recall>=%.2f %.4f",
+                 split_name, metrics.precision_at_best_f1, metrics.recall_at_best_f1,
+                 metrics.precision_at_eer, metrics.recall_at_eer,
+                 metrics.target_recall, metrics.precision_at_target_recall)
 
         with open(split_out / "metrics.json", "w") as fh:
             json.dump(metrics.to_dict(), fh, indent=2)

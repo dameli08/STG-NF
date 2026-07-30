@@ -64,6 +64,9 @@ class Trainer:
         self.best_val = float("inf")
         self.epochs_no_improve = 0
 
+        # Save an in-epoch checkpoint every this many optimizer steps (0 = off).
+        self.ckpt_interval = int(cfg.get_path("training.ckpt_interval", 500) or 0)
+
     # ------------------------------------------------------------------ utils
     def _prep_batch(self, batch):
         sample, _trans, score, label = batch
@@ -122,6 +125,11 @@ class Trainer:
                     pbar.set_description(f"epoch {epoch + 1} | nll {loss.item():.4f}")
                     if self.writer:
                         self.writer.add_scalar("train/nll", loss.item(), global_step)
+                # Periodic in-epoch checkpoint (crash / interrupt safety).
+                if self.ckpt_interval and (itern + 1) % self.ckpt_interval == 0:
+                    self.save_checkpoint(epoch, running / max(1, n), completed=False)
+                    log.info("  [ckpt] saved mid-epoch at step %d (epoch %d, iter %d)",
+                             global_step, epoch + 1, itern + 1)
             avg = running / max(1, n)
             new_lr = self.scheduler.step(epoch)
             log.info("Epoch %d done | mean nll %.4f | next lr %.3e", epoch + 1, avg, new_lr)
@@ -196,9 +204,17 @@ class Trainer:
         return torch.cat(out, dim=0).numpy().squeeze().astype(np.float32)
 
     # ------------------------------------------------------------ checkpoints
-    def save_checkpoint(self, epoch: int, metric: float, is_best: bool = False):
+    def save_checkpoint(self, epoch: int, metric: float, is_best: bool = False,
+                        completed: bool = True):
+        """Save the training state.
+
+        Args:
+            completed: True at end of epoch (records ``epoch+1`` so a resume starts
+                the next epoch); False for mid-epoch saves (records ``epoch`` so a
+                resume restarts the current epoch).
+        """
         state = {
-            "epoch": epoch + 1,
+            "epoch": epoch + 1 if completed else epoch,
             "state_dict": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "config": self.cfg.to_dict(),

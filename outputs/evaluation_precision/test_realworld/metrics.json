@@ -1,0 +1,17 @@
+{
+  "auc_roc": 0.6632783489651928,
+  "auc_pr": 0.4431160000822001,
+  "eer": 0.4031285547624418,
+  "eer_threshold": 2.9068478306067553,
+  "best_f1": 0.5792811839319132,
+  "best_f1_threshold": 2.6917221993505835,
+  "precision_at_best_f1": 0.42441140024783147,
+  "recall_at_best_f1": 0.9121171770972037,
+  "num_frames": 4796,
+  "num_abnormal": 1502,
+  "precision_at_eer": 0.4029649595687331,
+  "recall_at_eer": 0.5972037283621837,
+  "target_recall": 0.5,
+  "precision_at_target_recall": 0.42441140024783147,
+  "threshold_at_target_recall": 2.6917221993505835
+}

@@ -62,6 +62,7 @@ training:
   grad_clip: 100.0
   num_transform: 2         # pose augmentations (flip/shear) applied to training windows
   log_interval: 20
+  ckpt_interval: 500       # also save an in-epoch checkpoint every N optimizer steps (0=off)
   early_stopping:
     enable: true
     patience: 3            # stop after this many epochs without val-NLL improvement
@@ -72,6 +73,9 @@ training:
 evaluation:
   smoothing_sigma: 7       # gaussian temporal smoothing of per-frame scores
   frame_offset: half       # half => assign window score to frame start + seg_len//2
+  aggregation: center      # center (paper) | mean (average over all covering windows)
+  min_confidence: 0.0      # drop test windows whose mean keypoint confidence is below this
+  target_recall: 0.5       # report the best precision achievable at recall >= this
 
 output:
   root: outputs

@@ -121,9 +121,18 @@ python scripts/train.py --config configs/retails.yaml --resume outputs/checkpoin
 python scripts/train.py --config configs/retails.yaml --set training.early_stopping.enable=false
 ```
 
-**Evaluate** a checkpoint (writes metrics.json, ROC/PR curves, per-frame CSV):
+**Precision-focused run** (real-world precision is the target metric — uses mean
+aggregation, confidence-gated scoring and stronger smoothing; see
+[`configs/retails_precision.yaml`](configs/retails_precision.yaml)):
 ```bash
-python scripts/evaluate.py --config configs/retails.yaml --checkpoint outputs/checkpoints/best.pt
+python scripts/train.py --config configs/retails_precision.yaml
+```
+
+**Evaluate** a checkpoint (writes metrics.json, ROC/PR curves, per-frame CSV;
+reports precision at best-F1, at EER, and at a minimum-recall operating point):
+```bash
+python scripts/evaluate.py --config configs/retails.yaml           --checkpoint outputs/checkpoints/best.pt
+python scripts/evaluate.py --config configs/retails_precision.yaml --checkpoint outputs/checkpoints/best.pt
 ```
 
 **Infer** on a single clip and detect shoplifting events:
@@ -154,6 +163,16 @@ These are consistent with STG-NF's reported regime on shoplifting-style pose
 benchmarks (PoseLift), where the benchmark difficulty — not the flow — sets the
 ceiling. Full artifacts (ROC/PR curves, per-clip score plots, per-frame CSV) are
 under [`outputs/evaluation/`](outputs/evaluation/).
+
+**Precision focus.** The project is evaluated on **precision on `test_realworld`**.
+The evaluator reports precision at three operating points — best-F1, EER, and the
+best precision at `recall >= target_recall` — in each `metrics.json`. Precision is
+improved *without touching the model* via robust `mean` aggregation, confidence-
+gated scoring (`min_confidence`) and temporal smoothing; see
+[`configs/retails_precision.yaml`](configs/retails_precision.yaml) and
+[`docs/assumptions.md`](docs/assumptions.md) §20-25. These scoring knobs should be
+swept per split after a full training run; the table above is from a short
+preliminary run and will change once trained to convergence with early stopping.
 
 ---
 

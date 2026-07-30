@@ -27,45 +27,62 @@ class GpuInfo:
                 f"(free {self.free_mb:.0f} MB / total {self.total_mb:.0f} MB)")
 
 
-def _nvidia_smi_free() -> dict[int, float]:
-    """Return {index: free_MB} via nvidia-smi, or {} if unavailable."""
+def _nvidia_smi_free_by_uuid() -> dict[str, float]:
+    """Return {gpu_uuid: free_MB} via nvidia-smi, or {} if unavailable.
+
+    Keyed by UUID (not index) because nvidia-smi orders GPUs by PCI-bus id while
+    torch orders them FASTEST_FIRST — the indices do NOT correspond.
+    """
     if shutil.which("nvidia-smi") is None:
         return {}
     try:
         out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=index,memory.free", "--format=csv,noheader,nounits"],
+            ["nvidia-smi", "--query-gpu=uuid,memory.free", "--format=csv,noheader,nounits"],
             capture_output=True, text=True, timeout=10, check=True,
         ).stdout
     except (subprocess.SubprocessError, OSError):
         return {}
-    free: dict[int, float] = {}
+    free: dict[str, float] = {}
     for line in out.strip().splitlines():
         parts = [p.strip() for p in line.split(",")]
-        if len(parts) >= 2 and parts[0].isdigit():
+        if len(parts) >= 2:
             try:
-                free[int(parts[0])] = float(parts[1])
+                free[parts[0].lower()] = float(parts[1])
             except ValueError:
                 continue
     return free
 
 
+def _torch_uuid(props) -> str | None:
+    raw = getattr(props, "uuid", None)
+    if raw is None:
+        return None
+    return str(raw).lower().removeprefix("gpu-").strip()
+
+
 def list_gpus() -> List[GpuInfo]:
-    """Enumerate visible CUDA devices with free/total memory (MB)."""
+    """Enumerate visible CUDA devices with free/total memory (MB).
+
+    Free memory comes from ``torch.cuda.mem_get_info(i)`` which is authoritative
+    for the torch device index. ``nvidia-smi`` is used only as a UUID-matched
+    fallback, never by raw index (see :func:`_nvidia_smi_free_by_uuid`).
+    """
     if not torch.cuda.is_available():
         return []
-    smi_free = _nvidia_smi_free()
+    smi_free = _nvidia_smi_free_by_uuid()
     gpus: List[GpuInfo] = []
     for i in range(torch.cuda.device_count()):
         props = torch.cuda.get_device_properties(i)
         total_mb = props.total_memory / (1024 ** 2)
-        if i in smi_free:
-            free_mb = smi_free[i]
-        else:
-            # torch.cuda.mem_get_info reflects real free memory on the device.
-            try:
-                free_bytes, _ = torch.cuda.mem_get_info(i)
-                free_mb = free_bytes / (1024 ** 2)
-            except (RuntimeError, AssertionError):
+        free_mb = None
+        try:
+            free_bytes, _ = torch.cuda.mem_get_info(i)
+            free_mb = free_bytes / (1024 ** 2)
+        except (RuntimeError, AssertionError):
+            uuid = _torch_uuid(props)
+            if uuid is not None:
+                free_mb = next((v for k, v in smi_free.items() if uuid in k or k in uuid), None)
+            if free_mb is None:
                 free_mb = total_mb - torch.cuda.memory_reserved(i) / (1024 ** 2)
         gpus.append(GpuInfo(index=i, name=props.name, total_mb=total_mb, free_mb=free_mb))
     return gpus

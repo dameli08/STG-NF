@@ -87,6 +87,48 @@ paper/repo are silent, with the rationale given.
     the evaluated split and separately report the EER point. These are diagnostic;
     the headline metric remains threshold-free AUC.
 
+## Update — correctness fixes & precision focus (2026-07-30)
+
+The project is now judged on **precision on the real-world test split**. The
+following changes were made; none alter the STG-NF model or its methodology.
+
+20. **NaN/inf keypoint sanitization** *(correctness)* — the real-world split
+    contains frames with non-finite keypoints from the pose extractor. Non-finite
+    joints are marked missing (confidence 0) at parse time and then filled by the
+    existing missing-joint interpolation, instead of poisoning windows with NaN.
+21. **GPU selection bug fix** *(correctness)* — free memory is now read from
+    `torch.cuda.mem_get_info(i)` (authoritative per torch index). The previous
+    `nvidia-smi`-by-index cross-check was wrong because torch orders GPUs
+    FASTEST_FIRST while `nvidia-smi` uses PCI-bus order; it could select the
+    smaller GPU. `nvidia-smi` is now only a UUID-matched fallback.
+22. **In-epoch checkpointing** *(robustness)* — in addition to the end-of-epoch
+    save, a checkpoint is written every `training.ckpt_interval` steps (default
+    500) so a crash/interrupt mid-epoch loses at most a few hundred steps. `best.pt`
+    is still selected by lowest validation NLL (early stopping); mid-epoch saves go
+    to `last.pt` and record the *current* epoch so a resume restarts it cleanly.
+23. **Robust per-frame aggregation** *(precision)* — `evaluation.aggregation=mean`
+    assigns each window's anomaly to **every frame it covers** and averages, a
+    lower-variance estimator than the paper's centre-frame assignment; it usually
+    improves AUC-PR and precision. `center` (paper) remains the default in the base
+    config; `mean` is enabled in `configs/retails_precision.yaml`.
+24. **Confidence-gated scoring** *(precision)* — `evaluation.min_confidence` drops
+    test windows whose mean keypoint confidence is below the threshold, so noisy
+    pose detections do not raise false anomalies. This trades a little recall for
+    precision and should be **swept per split** after full training (start ~0.2).
+25. **Precision-oriented metrics** *(reporting)* — in addition to AUC/EER/F1 we now
+    report precision & recall at the EER threshold and the **best precision at a
+    configurable minimum recall** (`evaluation.target_recall`, default 0.5), so the
+    precision operating point is explicit.
+
+### Optional levers documented but left off by default
+- **Confidence-weighted flow** *(paper knob)* — `model.model_confidence=true` with
+  `model.in_channels=3` feeds `(x,y,conf)` and weights the NLL by pose confidence;
+  worth trying for the noisy real-world split (requires retraining).
+- We deliberately did **not** add shoplifting-specific heuristics (e.g. hand-region
+  or shelf-proximity features) to the model: they would break the general
+  skeleton-anomaly methodology the paper defines. Precision is improved through
+  cleaner data, better aggregation and confidence gating instead.
+
 ## Known limitations
 
 - Test clips are mostly single-person, so the multi-person "min across people"
